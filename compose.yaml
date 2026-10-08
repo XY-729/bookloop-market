@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: market
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-market_local_only}
+      POSTGRES_DB: market
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U market -d market']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  migrate:
+    build:
+      context: .
+      target: build
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://market:${POSTGRES_PASSWORD:-market_local_only}@db:5432/market?schema=public
+    command: ['npm', 'run', 'db:migrate']
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build:
+      context: .
+      target: api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://market:${POSTGRES_PASSWORD:-market_local_only}@db:5432/market?schema=public
+      HOST: 0.0.0.0
+      STORAGE_PATH: /app/.local/media
+    ports:
+      - '127.0.0.1:3000:3000'
+    volumes:
+      - media:/app/.local/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  admin:
+    build:
+      context: .
+      target: admin
+    ports:
+      - '127.0.0.1:8080:80'
+    depends_on:
+      - api
+  seed:
+    profiles: ['tools']
+    build:
+      context: .
+      target: build
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://market:${POSTGRES_PASSWORD:-market_local_only}@db:5432/market?schema=public
+      STORAGE_PATH: /app/.local/media
+    command: ['npm', 'run', 'db:seed']
+    volumes:
+      - media:/app/.local/media
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  pgdata:
+  media:

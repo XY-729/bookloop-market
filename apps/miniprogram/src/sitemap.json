@@ -1,0 +1,8 @@
+{
+  "desc": "仅索引公开教材页面",
+  "rules": [
+    { "action": "allow", "page": "pages/home/index" },
+    { "action": "allow", "page": "pages/detail/index" },
+    { "action": "disallow", "page": "*" }
+  ]
+}

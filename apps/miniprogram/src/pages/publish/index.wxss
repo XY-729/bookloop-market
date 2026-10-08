@@ -1,0 +1,1 @@
+.photos{display:flex;gap:22rpx}.photos .image-upload{width:50%;height:280rpx}.card{margin-top:26rpx}.card>.primary{margin-top:30rpx}

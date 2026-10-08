@@ -1,0 +1,7 @@
+node_modules
+dist
+.local
+package-lock.json
+*.wxml
+*.wxss
+apps/api/prisma/migrations

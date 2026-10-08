@@ -1,0 +1,14 @@
+{
+  "name": "@market/miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc && node build.mjs",
+    "build:production": "tsc && node build.mjs --production",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "miniprogram-api-typings": "^4.0.0"
+  }
+}

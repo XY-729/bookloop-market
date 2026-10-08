@@ -1,0 +1,7 @@
+{
+  "appid": "touristappid",
+  "projectname": "bookloop-mini",
+  "miniprogramRoot": "dist/",
+  "compileType": "miniprogram",
+  "setting": { "es6": true, "enhance": true, "minified": true, "urlCheck": true }
+}

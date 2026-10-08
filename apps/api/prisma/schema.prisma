@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(uuid())
+  openid String @unique
+  nickname String
+  role String @default("USER")
+  verified Boolean @default(false)
+  banned Boolean @default(false)
+  passwordHash String?
+  createdAt DateTime @default(now())
+  verifications Verification[]
+  media Media[]
+  products Product[]
+  purchases Order[] @relation("BuyerOrders")
+  sales Order[] @relation("SellerOrders")
+  ledger Ledger[]
+  buyerConversations Conversation[] @relation("BuyerChats")
+  sellerConversations Conversation[] @relation("SellerChats")
+  messages Message[]
+  readReceipts ReadReceipt[]
+  notifications Notification[]
+  subscriptions Subscription[]
+  history History[]
+  complaints Complaint[]
+  audits Audit[]
+}
+model Verification {
+  id String @id @default(uuid())
+  userId String
+  mediaId String @unique(map:"one_application_per_identity_media")
+  status String @default("PENDING")
+  reason String?
+  reviewedAt DateTime?
+  purgeAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id])
+  media Media @relation(fields:[mediaId], references:[id])
+  @@index([status, createdAt])
+  @@index([purgeAt])
+}
+model Media {
+  id String @id @default(uuid())
+  ownerId String
+  purpose String
+  key String @unique
+  mime String
+  bytes Int
+  deleted Boolean @default(false)
+  createdAt DateTime @default(now())
+  owner User @relation(fields:[ownerId], references:[id])
+  verification Verification?
+  productFronts Product[] @relation("ProductFront")
+  productBacks Product[] @relation("ProductBack")
+}
+model Dictionary {
+  id String @id @default(uuid())
+  kind String
+  name String
+  active Boolean @default(true)
+  topicProducts Product[] @relation("ProductTopic")
+  categoryProducts Product[] @relation("ProductCategory")
+  locationProducts Product[] @relation("ProductLocation")
+  @@unique([kind, name])
+}
+model Announcement {
+  id String @id @default(uuid())
+  title String
+  content String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+model Product {
+  id String @id @default(uuid())
+  sellerId String
+  title String
+  topicId String
+  categoryId String
+  locationId String
+  condition String
+  handoff String
+  price Int
+  frontMediaId String
+  backMediaId String
+  status String @default("PENDING")
+  reviewReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  seller User @relation(fields:[sellerId], references:[id])
+  topic Dictionary @relation("ProductTopic", fields:[topicId], references:[id])
+  category Dictionary @relation("ProductCategory", fields:[categoryId], references:[id])
+  location Dictionary @relation("ProductLocation", fields:[locationId], references:[id])
+  front Media @relation("ProductFront", fields:[frontMediaId], references:[id])
+  back Media @relation("ProductBack", fields:[backMediaId], references:[id])
+  orders Order[]
+  conversations Conversation[]
+  history History[]
+  @@index([status, createdAt])
+  @@index([sellerId])
+}
+model Order {
+  id String @id @default(uuid())
+  buyerId String
+  sellerId String
+  productId String
+  snapshot Json
+  amount Int
+  fee Int @default(0)
+  status String @default("UNPAID")
+  expiresAt DateTime
+  paidAt DateTime?
+  deliveredAt DateTime?
+  confirmedAt DateTime?
+  disputed Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  buyer User @relation("BuyerOrders", fields:[buyerId], references:[id])
+  seller User @relation("SellerOrders", fields:[sellerId], references:[id])
+  product Product @relation(fields:[productId], references:[id])
+  payment Payment?
+  refund Refund?
+  settlement Settlement?
+  ledger Ledger[]
+  notifications Notification[]
+  complaints Complaint[]
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([status, expiresAt])
+}
+model Payment {
+  id String @id @default(uuid())
+  orderId String @unique
+  provider String
+  status String @default("CREATED")
+  channelId String? @unique
+  amount Int
+  createdAt DateTime @default(now())
+  order Order @relation(fields:[orderId], references:[id])
+}
+model Refund {
+  id String @id @default(uuid())
+  orderId String @unique
+  amount Int
+  reason String
+  status String @default("REQUESTED")
+  returnRequired Boolean @default(false)
+  returnConfirmedAt DateTime?
+  reviewedAt DateTime?
+  reviewReason String?
+  channelId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order Order @relation(fields:[orderId], references:[id])
+}
+model Settlement {
+  id String @id @default(uuid())
+  orderId String @unique
+  amount Int
+  status String @default("PENDING")
+  channelId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order Order @relation(fields:[orderId], references:[id])
+}
+model Ledger {
+  id String @id @default(uuid())
+  userId String
+  orderId String
+  kind String
+  amount Int
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id])
+  order Order @relation(fields:[orderId], references:[id])
+  @@unique([orderId, kind])
+  @@index([userId, createdAt])
+}
+model Task {
+  id String @id @default(uuid())
+  key String @unique
+  kind String
+  payload Json
+  runAt DateTime
+  state String @default("PENDING")
+  attempts Int @default(0)
+  lockedAt DateTime?
+  lockToken String?
+  lastError String?
+  createdAt DateTime @default(now())
+  @@index([state, runAt])
+}
+model Conversation {
+  id String @id @default(uuid())
+  buyerId String
+  sellerId String
+  productId String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  buyer User @relation("BuyerChats", fields:[buyerId], references:[id])
+  seller User @relation("SellerChats", fields:[sellerId], references:[id])
+  product Product @relation(fields:[productId], references:[id])
+  messages Message[]
+  readReceipts ReadReceipt[]
+  @@unique([buyerId, sellerId, productId])
+}
+model Message {
+  id String @id @default(uuid())
+  conversationId String
+  senderId String
+  clientId String
+  kind String
+  body String
+  createdAt DateTime @default(now())
+  conversation Conversation @relation(fields:[conversationId], references:[id])
+  sender User @relation(fields:[senderId], references:[id])
+  @@unique([senderId, clientId])
+  @@index([conversationId, createdAt])
+}
+model ReadReceipt {
+  conversationId String
+  userId String
+  readAt DateTime @default(now())
+  conversation Conversation @relation(fields:[conversationId], references:[id])
+  user User @relation(fields:[userId], references:[id])
+  @@id([conversationId, userId])
+}
+model Notification {
+  id String @id @default(uuid())
+  userId String
+  orderId String?
+  title String
+  content String
+  read Boolean @default(false)
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id])
+  order Order? @relation(fields:[orderId], references:[id])
+  @@index([userId, createdAt])
+}
+model Subscription {
+  id String @id @default(uuid())
+  userId String
+  templateId String
+  remaining Int @default(0)
+  user User @relation(fields:[userId], references:[id])
+  @@unique([userId, templateId])
+}
+model History {
+  userId String
+  productId String
+  viewedAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id])
+  product Product @relation(fields:[productId], references:[id])
+  @@id([userId, productId])
+}
+model Complaint {
+  id String @id @default(uuid())
+  userId String
+  orderId String
+  content String
+  evidence Json
+  status String @default("OPEN")
+  resolution String?
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id])
+  order Order @relation(fields:[orderId], references:[id])
+}
+model Audit {
+  id String @id @default(uuid())
+  actorId String?
+  action String
+  targetId String
+  details Json
+  createdAt DateTime @default(now())
+  actor User? @relation(fields:[actorId], references:[id])
+  @@index([createdAt])
+}
+model Setting {
+  key String @id
+  value Json
+}
+model ChannelOperation {
+  key String @id
+  kind String
+  amount Int
+  status String
+  channelId String
+  updatedAt DateTime @updatedAt
+}

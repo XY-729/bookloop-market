@@ -1,0 +1,38 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/publish/index",
+    "pages/messages/index",
+    "pages/profile/index",
+    "pages/detail/index",
+    "pages/verify/index",
+    "pages/orders/index",
+    "pages/order/index",
+    "pages/chat/index",
+    "pages/funds/index",
+    "pages/history/index",
+    "pages/sales/index",
+    "pages/complaint/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "BookLoop 教材",
+    "navigationBarBackgroundColor": "#f6f7f0",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f7f0"
+  },
+  "tabBar": {
+    "color": "#879386",
+    "selectedColor": "#276b56",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "找教材" },
+      { "pagePath": "pages/publish/index", "text": "发布" },
+      { "pagePath": "pages/messages/index", "text": "消息" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "permission": {}
+}
