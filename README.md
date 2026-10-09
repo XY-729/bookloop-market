@@ -4,6 +4,12 @@
 
 **真实平台支付适配器尚未实现。生产启动会主动拒绝模拟支付，也会拒绝未配置的真实渠道；当前不能对外开展真实资金试运营。**
 
+## 手机样品
+
+手机直接打开 [BookLoop 体验链接](https://bookloop-phone-sample.sunsetcreek1.chatgpt.site)，可以查看找书、发布、聊天、模拟购买、交付及退款流程。网页样品使用浏览器本地记录，不涉及真实付款，设备间不共享数据。
+
+网页代码在 `apps/phone-demo`，原生微信小程序在 `apps/miniprogram`。需求说明见 [文字稿](deliverables/2026-10-09/BookLoop_样品需求说明.md) 和 [PDF](deliverables/2026-10-09/BookLoop_样品需求说明.pdf)。
+
 ## 本地启动
 
 需要 Node.js 22.12 或更新版本。以下命令在项目根目录执行。首次安装后的构建脚本仅涉及已声明的 npm 依赖；如本机 npm 提示脚本待批准，按下面命令执行。

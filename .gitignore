@@ -9,3 +9,5 @@ test-results/
 playwright-report/
 *.log
 apps/miniprogram/project.production.config.json
+deliverables/**/*.zip
+deliverables/**/交付校验.json
