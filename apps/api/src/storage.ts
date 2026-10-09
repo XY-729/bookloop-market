@@ -17,7 +17,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { Db } from './db';
 import { Actor, requireAdmin } from './auth';
-import { secret } from './config';
+import { production, secret } from './config';
+import { ContentSafety } from './content-safety';
 @Injectable()
 export class Storage {
   private root = resolve(process.env.STORAGE_PATH || '../../.local/media');
@@ -33,7 +34,10 @@ export class Storage {
           },
         })
       : null;
-  constructor(@Inject(Db) private db: Db) {}
+  constructor(
+    @Inject(Db) private db: Db,
+    @Inject(ContentSafety) private safety: ContentSafety,
+  ) {}
   private bucket(purpose: string) {
     return purpose === 'IDENTITY' || purpose === 'CHAT' || purpose === 'EVIDENCE'
       ? process.env.S3_PRIVATE_BUCKET
@@ -83,16 +87,46 @@ export class Storage {
     const media = await this.db.media.create({
       data: { ownerId: actor.id, purpose, key, mime: 'image/webp', bytes: buffer.length },
     });
-    return { id: media.id, purpose, url: this.private(purpose) ? null : this.publicUrl(media.id) };
+    await this.safety.image(media.id);
+    const reviewed = await this.db.media.findUniqueOrThrow({ where: { id: media.id } });
+    return {
+      id: media.id,
+      purpose,
+      reviewState: reviewed.reviewState,
+      url:
+        !this.private(purpose) && reviewed.reviewState === 'APPROVED'
+          ? this.publicUrl(media.id)
+          : null,
+    };
   }
   publicUrl(id: string) {
     return `${process.env.PUBLIC_API_URL || 'http://127.0.0.1:3000'}/files/public/${id}`;
   }
   async own(actorId: string, ids: string[], purpose: string) {
     const rows = await this.db.media.findMany({
-      where: { id: { in: ids }, ownerId: actorId, purpose, deleted: false },
+      where: {
+        id: { in: ids },
+        ownerId: actorId,
+        purpose,
+        deleted: false,
+        reviewState: 'APPROVED',
+        ...(production && purpose !== 'IDENTITY' ? { reviewSource: 'wechat' } : {}),
+      },
     });
-    if (rows.length !== new Set(ids).size) throw new BadRequestException('图片不存在或无权使用');
+    if (rows.length !== new Set(ids).size)
+      throw new BadRequestException('图片不存在、未通过内容审核或无权使用');
+  }
+  async status(actor: Actor, id: string) {
+    const media = await this.db.media.findUnique({ where: { id } });
+    if (!media || media.deleted) throw new NotFoundException('图片不存在');
+    if (media.ownerId !== actor.id && actor.role !== 'ADMIN')
+      throw new ForbiddenException('无权查看图片审核状态');
+    return {
+      id,
+      reviewState: media.reviewState,
+      url:
+        media.reviewState === 'APPROVED' && media.purpose === 'PRODUCT' ? this.publicUrl(id) : null,
+    };
   }
   async signed(actor: Actor, id: string) {
     const media = await this.db.media.findUnique({ where: { id } });
@@ -127,6 +161,11 @@ export class Storage {
     const media = await this.db.media.findUnique({ where: { id } });
     if (!media || media.deleted || this.private(media.purpose) !== isPrivate)
       throw new NotFoundException('图片不存在');
+    if (
+      media.reviewState !== 'APPROVED' ||
+      (production && media.purpose !== 'IDENTITY' && media.reviewSource !== 'wechat')
+    )
+      throw new NotFoundException('图片尚未通过内容审核');
     if (isPrivate) {
       const expected = createHmac('sha256', secret('MEDIA_SIGNING_SECRET'))
         .update(`${id}:${exp}`)
@@ -136,11 +175,14 @@ export class Storage {
         exp < Math.floor(Date.now() / 1000) ||
         exp > Math.floor(Date.now() / 1000) + 125 ||
         !sig ||
-        sig.length !== expected.length ||
+        !/^[a-f0-9]{64}$/.test(sig) ||
         !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
       )
         throw new ForbiddenException('图片链接已过期');
     }
+    return this.read(media);
+  }
+  private async read(media: { purpose: string; key: string }) {
     if (this.s3) {
       const response = await this.s3.send(
         new GetObjectCommand({ Bucket: this.bucket(media.purpose), Key: media.key }),
@@ -148,6 +190,25 @@ export class Storage {
       return Buffer.from(await response.Body!.transformToByteArray());
     }
     return readFile(resolve(this.root, media.key));
+  }
+  async checkImage(id: string, exp: number, sig: string) {
+    const expected = createHmac('sha256', secret('MEDIA_SIGNING_SECRET'))
+      .update(`wechat:${id}:${exp}`)
+      .digest('hex');
+    if (
+      !Number.isInteger(exp) ||
+      exp < Math.floor(Date.now() / 1000) ||
+      exp > Math.floor(Date.now() / 1000) + 7250 ||
+      !/^[a-f0-9]{64}$/.test(sig) ||
+      !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))
+    )
+      throw new ForbiddenException('审核图片链接无效');
+    const media = await this.db.media.findUnique({ where: { id } });
+    if (!media || media.deleted || media.purpose === 'IDENTITY' || media.reviewSource !== 'wechat')
+      throw new NotFoundException('审核图片不存在');
+    return sharp(await this.read(media))
+      .jpeg({ quality: 85 })
+      .toBuffer();
   }
   async purge(id: string) {
     const media = await this.db.media.findUnique({ where: { id } });

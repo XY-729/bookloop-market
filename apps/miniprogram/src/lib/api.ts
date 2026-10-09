@@ -1,4 +1,5 @@
 import { API_BASE_URL, DEV_LOGIN_ENABLED, DEV_LOGIN_SECRET } from '../config';
+import { authorizePrivacy } from './privacy';
 export type Row = Record<string, any>;
 export function token(): string {
   return wx.getStorageSync('market-token') || '';
@@ -56,6 +57,8 @@ export function request<T = Row>(
           return;
         }
         const message = (result.data as Row)?.message || '请求失败';
+        if ((result.data as Row)?.code === 'CONSENT_REQUIRED')
+          wx.switchTab({ url: '/pages/profile/index' });
         if (result.statusCode === 401) {
           wx.removeStorageSync('market-token');
           wx.removeStorageSync('market-user');
@@ -70,7 +73,7 @@ export function request<T = Row>(
     }),
   );
 }
-export async function login(devIdentity = 'buyer') {
+export async function login(devIdentity = 'buyer', versions?: { privacy: string; terms: string }) {
   let result: Row;
   if (DEV_LOGIN_ENABLED) {
     result = await request('/auth/dev', 'POST', {
@@ -89,6 +92,7 @@ export async function login(devIdentity = 'buyer') {
   }
   wx.setStorageSync('market-token', result.token);
   wx.setStorageSync('market-user', result.user);
+  if (versions) await request('/me/consent', 'POST', { ...versions, agree: true });
   return result.user;
 }
 export function ensureLogin() {
@@ -97,7 +101,28 @@ export function ensureLogin() {
   wx.switchTab({ url: '/pages/profile/index' });
   return false;
 }
-export function upload(purpose: string): Promise<Row> {
+export async function upload(purpose: string): Promise<Row> {
+  await authorizePrivacy();
+  const uploaded = await chooseUpload(purpose);
+  if (uploaded.reviewState !== 'PENDING') return uploaded;
+  wx.showLoading({ title: '图片内容审核中', mask: true });
+  try {
+    for (let n = 0; n < 15; n++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const state = await request(`/media/${uploaded.id}/status`);
+      if (state.reviewState === 'APPROVED') return { ...uploaded, ...state };
+      if (['FAILED', 'REJECTED'].includes(state.reviewState))
+        throw new Error('图片未通过审核，请更换或稍后重试');
+    }
+    throw new Error('审核尚未完成，请稍后重试');
+  } catch (e) {
+    wx.showToast({ title: (e as Error).message, icon: 'none' });
+    throw e;
+  } finally {
+    wx.hideLoading();
+  }
+}
+function chooseUpload(purpose: string): Promise<Row> {
   return new Promise((resolve, reject) =>
     wx.chooseMedia({
       count: 1,

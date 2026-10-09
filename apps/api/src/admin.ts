@@ -196,6 +196,16 @@ export class Admin {
     return this.db.atomic(async (tx) => {
       const row = await tx.product.findUniqueOrThrow({ where: { id } });
       if (row.status !== 'PENDING') throw new BadRequestException('商品已审核或不可审核');
+      if (approve) {
+        const count = await tx.media.count({
+          where: {
+            id: { in: [row.frontMediaId, row.backMediaId] },
+            deleted: false,
+            reviewState: 'APPROVED',
+          },
+        });
+        if (count !== 2) throw new BadRequestException('请等待正反面图片通过内容审核');
+      }
       await tx.product.update({
         where: { id },
         data: { status: approve ? 'ACTIVE' : 'REJECTED', reviewReason: reason },

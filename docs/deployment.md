@@ -20,6 +20,8 @@ docker compose run --rm seed
 - 独立 PostgreSQL 账号与密码；`JWT_SECRET` 和 `MEDIA_SIGNING_SECRET` 至少 32 位随机值，替换所有 local-only 示例值。
 - 真实 `WX_APP_ID`、`WX_APP_SECRET`、获准订阅模板及 `WX_SUBSCRIBE_FIELDS` 的字段映射。
 - `STORAGE_DRIVER=s3`，独立公共和私有桶，最小权限访问凭据；禁止私有桶匿名读取。
+- 两个媒体桶都禁止直接匿名读取，由服务按内容审核与权限提供图片；填写 `OPERATOR_NAME`、`SUPPORT_CONTACT` 和协议版本，审阅正式文本后设置 `LEGAL_APPROVED=true`。
+- 配置 `WX_CONTENT_SAFETY=wechat`、JSON 加密消息推送 token 与 EncodingAESKey；配置 `WX_ORDER_SYNC=wechat` 并联调真实交易单号及发货管理权限。
 - HTTPS `PUBLIC_API_URL` 和 `ADMIN_ORIGIN`，小程序的 request、uploadFile、downloadFile、socket 域名。
 - 后端 `HOST=0.0.0.0` 用于容器内监听，外部入口使用 TLS 代理；不直接公开数据库端口。
 

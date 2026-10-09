@@ -6,6 +6,8 @@ import { Trading } from './trading';
 import { Events } from './events';
 import { Storage } from './storage';
 import { PaymentProvider } from './payments';
+import { ContentSafety } from './content-safety';
+import { WechatOrders } from './wechat-orders';
 @Injectable()
 export class Worker implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
@@ -17,6 +19,8 @@ export class Worker implements OnModuleInit, OnModuleDestroy {
     @Inject(Events) private events: Events,
     @Inject(Storage) private storage: Storage,
     @Inject(PaymentProvider) private provider: PaymentProvider,
+    @Inject(ContentSafety) private safety: ContentSafety,
+    @Inject(WechatOrders) private orders: WechatOrders,
   ) {}
   onModuleInit() {
     if (process.env.WORKER_DISABLED !== 'true')
@@ -85,6 +89,13 @@ export class Worker implements OnModuleInit, OnModuleDestroy {
         return this.events.sendNotification(p.notificationId);
       case 'PURGE_IDENTITY':
         return this.storage.purge(p.mediaId);
+      case 'MEDIA_CHECK':
+        return this.safety.submitImage(p.checkId);
+      case 'MEDIA_CHECK_TIMEOUT':
+        return this.safety.timeout(p.checkId);
+      case 'WECHAT_SHIPPING':
+        await this.orders.shipping(p.orderId);
+        return this.trading.settleDue(p.orderId);
       default:
         throw new Error(`Unknown task kind ${task.kind}`);
     }

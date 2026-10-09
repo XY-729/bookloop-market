@@ -66,6 +66,7 @@ npm run build:production -w apps/miniprogram
 npm run typecheck
 npm run build
 npm test
+npm run check:release
 ```
 
 `npm test` 自动启动独立的 PostgreSQL 测试实例（55433），创建 `market_test_时间戳` 数据库，应用全部迁移，运行测试后删除该测试数据库并停止实例。不会清空或改动开发数据库。测试覆盖交易竞争、资金状态、审核、图片隐私、消息和任务重试。
@@ -82,3 +83,5 @@ npm test
 | `docs`             | 架构、部署、运营、支付接入与测试报告      |
 
 详细说明见 [架构说明](docs/architecture.md)、[部署说明](docs/deployment.md)、[运营操作手册](docs/operations.md)、[支付接入前置条件](docs/payment-readiness.md)、[测试报告](docs/test-report.md)。
+
+另见 [微信小程序上线准备](docs/launch-guide.md)。小程序提供协议页与隐私授权流程，后台提供“上线准备”检查。真实内容检测、加密回调及发货同步已经接入代码流程，仍需正式账号联调。条件未齐备时 `check:release` 返回退出码 1，这是正常的发布阻断。

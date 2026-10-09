@@ -9,12 +9,14 @@ import { Db } from './db';
 import { Actor, requireVerified } from './auth';
 import { Events } from './events';
 import { Storage } from './storage';
+import { ContentSafety } from './content-safety';
 @Injectable()
 export class Chat {
   constructor(
     @Inject(Db) private db: Db,
     @Inject(Events) private events: Events,
     @Inject(Storage) private storage: Storage,
+    @Inject(ContentSafety) private safety: ContentSafety,
   ) {}
   async start(actor: Actor, productId: string) {
     requireVerified(actor);
@@ -117,6 +119,7 @@ export class Chat {
     });
     if (other.banned) throw new ForbiddenException('对方账号已封禁');
     if (kind === 'IMAGE') await this.storage.own(actor.id, [body], 'CHAT');
+    if (kind === 'TEXT') await this.safety.text(actor, body, 4);
     if (kind === 'PRODUCT' && body !== conversation.productId)
       throw new BadRequestException('仅可发送本会话的教材卡片');
     const message = await this.db.$transaction(

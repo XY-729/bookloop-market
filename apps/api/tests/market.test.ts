@@ -16,6 +16,7 @@ import { Admin } from '../src/admin';
 import { Storage } from '../src/storage';
 import { Worker } from '../src/worker';
 import { validateConfig } from '../src/config';
+import { Legal } from '../src/legal';
 let app: INestApplication,
   db: Db,
   auth: Auth,
@@ -47,9 +48,11 @@ afterAll(async () => {
   await app?.close();
 });
 async function user(verified = true, role = 'USER') {
-  return db.user.create({
+  const created = await db.user.create({
     data: { openid: `test:${randomUUID()}`, nickname: '测试用户', verified, role },
   });
+  await app.get(Legal).accept(created.id, app.get(Legal).versions());
+  return created;
 }
 async function book(seller: Actor, status = 'ACTIVE') {
   const [topic, category, location, front, back] = await Promise.all([
@@ -63,6 +66,8 @@ async function book(seller: Actor, status = 'ACTIVE') {
         key: `public/${randomUUID()}.webp`,
         mime: 'image/webp',
         bytes: 100,
+        reviewState: 'APPROVED',
+        reviewSource: 'mock',
       },
     }),
     db.media.create({
@@ -72,6 +77,8 @@ async function book(seller: Actor, status = 'ACTIVE') {
         key: `public/${randomUUID()}.webp`,
         mime: 'image/webp',
         bytes: 100,
+        reviewState: 'APPROVED',
+        reviewSource: 'mock',
       },
     }),
   ]);

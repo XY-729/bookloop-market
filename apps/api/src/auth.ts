@@ -9,6 +9,7 @@ import {
 import { sign, verify } from 'jsonwebtoken';
 import { compare } from 'bcryptjs';
 import { Db } from './db';
+import { Legal } from './legal';
 import { production, secret } from './config';
 import type { Request } from 'express';
 export type Actor = {
@@ -111,12 +112,21 @@ export class Auth {
 }
 @Injectable()
 export class UserGuard implements CanActivate {
-  constructor(@Inject(Auth) private auth: Auth) {}
+  constructor(
+    @Inject(Auth) private auth: Auth,
+    @Inject(Legal) private legal: Legal,
+  ) {}
   async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest<AuthedRequest>();
     const token = req.headers.authorization?.replace(/^Bearer /, '');
     if (!token) throw new UnauthorizedException('请先登录');
     req.actor = await this.auth.actor(token);
+    const newContent =
+      /^\/v1\/(products(?:\/[^/]+\/(?:edit|price))?|orders(?:\/[^/]+\/(?:pay|mock-pay))?|media|conversations(?:\/[^/]+\/messages)?)\/?$/.test(
+        req.path,
+      );
+    if (req.actor.role !== 'ADMIN' && req.method !== 'GET' && newContent)
+      await this.legal.ensure(req.actor.id);
     return true;
   }
 }

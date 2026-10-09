@@ -33,5 +33,31 @@ export function validateConfig() {
       secret('MEDIA_SIGNING_SECRET').includes('local-only')
     )
       throw new Error('Replace development secrets');
+    if (!/^wx[a-zA-Z0-9]{16}$/.test(process.env.WX_APP_ID))
+      throw new Error('A real WeChat AppID is required');
+    if (
+      !process.env.OPERATOR_NAME ||
+      !process.env.SUPPORT_CONTACT ||
+      process.env.LEGAL_APPROVED !== 'true'
+    )
+      throw new Error('Reviewed legal documents and operator contact are required');
+    if (process.env.ACCOUNT_COMPLIANCE_VERIFIED !== 'true')
+      throw new Error('Account category and registration must be verified');
+    if (
+      process.env.WX_CONTENT_SAFETY !== 'wechat' ||
+      !process.env.WX_MESSAGE_TOKEN ||
+      !/^[a-zA-Z0-9+/]{43}$/.test(process.env.WX_ENCODING_AES_KEY || '')
+    )
+      throw new Error('WeChat content safety and encrypted callbacks are required');
+    if (process.env.WX_ORDER_SYNC !== 'wechat' || process.env.WX_SHIPPING_VERIFIED !== 'true')
+      throw new Error('WeChat shipping management must be verified');
+    if (
+      !process.env.S3_PUBLIC_BUCKET ||
+      !process.env.S3_PRIVATE_BUCKET ||
+      process.env.S3_PUBLIC_BUCKET === process.env.S3_PRIVATE_BUCKET ||
+      !process.env.S3_ACCESS_KEY_ID ||
+      !process.env.S3_SECRET_ACCESS_KEY
+    )
+      throw new Error('Separate object storage buckets and credentials are required');
   }
 }

@@ -8,6 +8,7 @@
     "apps/miniprogram"
   ],
   "scripts": {
+    "check:release": "node scripts/check-release.mjs",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
     "test": "node scripts/test.mjs",

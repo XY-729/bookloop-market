@@ -52,11 +52,28 @@ model Media {
   mime String
   bytes Int
   deleted Boolean @default(false)
+  reviewState String @default("PENDING")
+  reviewSource String @default("unknown")
   createdAt DateTime @default(now())
   owner User @relation(fields:[ownerId], references:[id])
   verification Verification?
   productFronts Product[] @relation("ProductFront")
   productBacks Product[] @relation("ProductBack")
+  checks MediaCheck[]
+}
+model MediaCheck {
+  id String @id @default(uuid())
+  mediaId String
+  traceId String? @unique
+  status String @default("PENDING")
+  createdAt DateTime @default(now())
+  media Media @relation(fields:[mediaId],references:[id])
+  @@index([mediaId])
+}
+model WechatMediaEvent {
+  traceId String @id
+  payload Json
+  receivedAt DateTime @default(now())
 }
 model Dictionary {
   id String @id @default(uuid())

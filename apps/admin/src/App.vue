@@ -25,6 +25,7 @@ import { api } from './api';
 type Row = Record<string, any>;
 const menus = [
   { id: 'dashboard', name: '工作台', icon: DataAnalysis },
+  { id: 'readiness', name: '上线准备', icon: Operation },
   { id: 'verifications', name: '用户认证审核', icon: DocumentChecked },
   { id: 'products', name: '教材管理', icon: Collection },
   { id: 'orders', name: '交易订单', icon: ShoppingBag },
@@ -43,6 +44,7 @@ const password = ref('');
 const loginBusy = ref(false);
 const current = ref('dashboard');
 const dashboard = ref<Row>({});
+const release = ref<Row | null>(null);
 const rows = ref<Row[]>([]);
 const total = ref(0);
 const page = ref(1);
@@ -162,7 +164,8 @@ async function load() {
   error.value = '';
   try {
     dashboard.value = await api('/admin/dashboard');
-    if (current.value !== 'dashboard') {
+    if (current.value === 'readiness') release.value = await api('/admin/readiness');
+    else if (current.value !== 'dashboard') {
       const result = await api(
         `/admin/lists/${current.value}?page=${page.value}${filter.value ? `&status=${filter.value}` : ''}`,
       );
@@ -601,6 +604,43 @@ onMounted(() => {
             ></el-table>
           </section>
         </template>
+        <section v-else-if="current === 'readiness'" class="panel table-panel" v-loading="loading">
+          <el-alert
+            type="warning"
+            title="配置检查不代表正式验收通过。真实支付适配器、微信真机及生产环境仍需完成实际验证。"
+            :closable="false"
+          />
+          <div class="panel-title" style="margin-top: 24px">
+            <h2>发布条件检查</h2>
+            <el-tag :type="release?.ready ? 'success' : 'warning'">{{
+              release?.ready ? '条件已齐备' : '尚不可正式上线'
+            }}</el-tag>
+          </div>
+          <el-table :data="release?.checks || []"
+            ><el-table-column prop="label" label="检查事项" min-width="180" /><el-table-column
+              label="状态"
+              width="100"
+              ><template #default="s"
+                ><el-tag
+                  :type="
+                    s.row.status === 'PASS'
+                      ? 'success'
+                      : s.row.status === 'BLOCKED'
+                        ? 'danger'
+                        : 'info'
+                  "
+                  >{{
+                    s.row.status === 'PASS'
+                      ? '已配置'
+                      : s.row.status === 'BLOCKED'
+                        ? '未就绪'
+                        : '待验收'
+                  }}</el-tag
+                ></template
+              ></el-table-column
+            ><el-table-column prop="detail" label="说明" min-width="320"
+          /></el-table>
+        </section>
         <section v-else class="panel table-panel" v-loading="loading">
           <div class="table-toolbar">
             <div>

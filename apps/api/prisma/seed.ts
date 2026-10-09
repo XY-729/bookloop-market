@@ -59,7 +59,7 @@ async function main() {
     create: { openid: 'dev:buyer', nickname: '模拟买家', verified: true },
     update: {},
   });
-  if (await db.product.count({ where: { sellerId: seller.id } })) return;
+  if (await db.product.count({ where: { sellerId: seller.id } })) {await db.media.updateMany({where:{ownerId:seller.id,purpose:'PRODUCT',key:{startsWith:'public/demo-'}},data:{reviewState:'APPROVED',reviewSource:'mock'}});return;}
   const root = resolve(process.env.STORAGE_PATH || '../../.local/media');
   await mkdir(resolve(root, 'public'), { recursive: true });
   const dictionary = await db.dictionary.findMany();
@@ -88,8 +88,9 @@ async function main() {
           key,
           mime: 'image/webp',
           bytes: bytes.length,
+          reviewState:'APPROVED',reviewSource:'mock',
         },
-        update: {},
+        update: {reviewState:'APPROVED',reviewSource:'mock'},
       });
       images.push(media.id);
     }

@@ -27,6 +27,12 @@ import { Worker } from './worker';
 import { Gateway } from './gateway';
 import { PublicController, UserController, AdminController, FilesController } from './controllers';
 import { production, validateConfig } from './config';
+import { Legal } from './legal';
+import { WechatClient } from './wechat-client';
+import { ContentSafety } from './content-safety';
+import { WechatOrders } from './wechat-orders';
+import { Readiness } from './readiness';
+import { WechatController } from './wechat.controller';
 @Catch()
 class Errors implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
@@ -48,11 +54,21 @@ class Errors implements ExceptionFilter {
     }
     if (status === 500)
       new Logger('API').error(error instanceof Error ? error.stack : String(error));
-    res.status(status).json({ statusCode: status, message });
+    const code =
+      error instanceof HttpException && typeof error.getResponse() === 'object'
+        ? (error.getResponse() as { code?: string }).code
+        : undefined;
+    res.status(status).json({ statusCode: status, message, ...(code ? { code } : {}) });
   }
 }
 @Module({
-  controllers: [PublicController, UserController, AdminController, FilesController],
+  controllers: [
+    PublicController,
+    UserController,
+    AdminController,
+    FilesController,
+    WechatController,
+  ],
   providers: [
     Db,
     Auth,
@@ -65,6 +81,11 @@ class Errors implements ExceptionFilter {
     Events,
     Worker,
     Gateway,
+    Legal,
+    WechatClient,
+    ContentSafety,
+    WechatOrders,
+    Readiness,
     { provide: PaymentProvider, useFactory: providerFactory, inject: [Db] },
   ],
 })

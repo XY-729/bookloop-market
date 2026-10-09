@@ -28,6 +28,8 @@ import { Storage } from './storage';
 import { Db } from './db';
 import { PaymentProvider } from './payments';
 import { parse, id, text, money, page, productInput } from './validation';
+import { Legal } from './legal';
+import { Readiness } from './readiness';
 const bodyDoc = (schema: z.ZodTypeAny) =>
   ApiBody({
     schema: (zodToJsonSchema as (s: unknown, o: unknown) => unknown)(schema, {
@@ -71,6 +73,7 @@ export class PublicController {
     @Inject(PaymentProvider) private payments: PaymentProvider,
     @Inject(Trading) private trading: Trading,
     @Inject(Db) private db: Db,
+    @Inject(Legal) private legal: Legal,
   ) {}
   @Post('auth/wechat') @bodyDoc(login) @ApiOperation({ summary: '微信 code 登录' }) login(
     @Body() value: unknown,
@@ -93,6 +96,9 @@ export class PublicController {
   }
   @Get('dictionaries') dictionaries() {
     return this.catalog.dictionaries();
+  }
+  @Get('legal') documents() {
+    return this.legal.documents();
   }
   @Get('announcements') announcements() {
     return this.catalog.announcements();
@@ -146,9 +152,28 @@ export class UserController {
     @Inject(Admin) private admin: Admin,
     @Inject(Storage) private storage: Storage,
     @Inject(Db) private db: Db,
+    @Inject(Legal) private legal: Legal,
   ) {}
   @Get('me') me(@Req() r: AuthedRequest) {
     return this.catalog.me(r.actor);
+  }
+  @Get('me/consent') consent(@Req() r: AuthedRequest) {
+    return this.legal.status(r.actor.id);
+  }
+  @Post('me/consent')
+  @bodyDoc(z.object({ privacy: text(100), terms: text(100), agree: z.literal(true) }).strict())
+  accept(@Req() r: AuthedRequest, @Body() body: unknown) {
+    const value = parse(
+      z.object({ privacy: text(100), terms: text(100), agree: z.literal(true) }).strict(),
+      body,
+    );
+    return this.legal.accept(r.actor.id, value);
+  }
+  @Post('me/consent/revoke') revoke(@Req() r: AuthedRequest) {
+    return this.legal.revoke(r.actor.id);
+  }
+  @Get('media/:id/status') mediaStatus(@Req() r: AuthedRequest, @Param('id') value: string) {
+    return this.storage.status(r.actor, parse(id, value));
   }
   @Get('me/products') mine(@Req() r: AuthedRequest) {
     return this.db.product.findMany({
@@ -346,9 +371,14 @@ export class AdminController {
   constructor(
     @Inject(Admin) private admin: Admin,
     @Inject(Trading) private trading: Trading,
+    @Inject(Readiness) private readiness: Readiness,
   ) {}
   @Get('dashboard') dashboard(@Req() r: AuthedRequest) {
     return this.admin.dashboard(r.actor);
+  }
+  @Get('readiness') release(@Req() r: AuthedRequest) {
+    requireAdmin(r.actor);
+    return this.readiness.report();
   }
   @Get('orders/:id/evidence') evidence(@Req() r: AuthedRequest, @Param('id') v: string) {
     return this.admin.orderEvidence(r.actor, parse(id, v));
@@ -452,6 +482,25 @@ export class FilesController {
       .set({
         'Content-Type': 'image/webp',
         'Cache-Control': 'public, max-age=3600',
+        'X-Content-Type-Options': 'nosniff',
+      })
+      .send(bytes);
+  }
+  @Get('check/:id') async check(
+    @Param('id') value: string,
+    @Query('exp') exp: string,
+    @Query('sig') sig: string,
+    @Res() response: Response,
+  ) {
+    const bytes = await this.storage.checkImage(
+      parse(id, value),
+      parse(z.coerce.number().int(), exp),
+      sig,
+    );
+    response
+      .set({
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': 'private, no-store',
         'X-Content-Type-Options': 'nosniff',
       })
       .send(bytes);

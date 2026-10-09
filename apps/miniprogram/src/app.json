@@ -12,7 +12,8 @@
     "pages/funds/index",
     "pages/history/index",
     "pages/sales/index",
-    "pages/complaint/index"
+    "pages/complaint/index",
+    "pages/legal/index"
   ],
   "window": {
     "navigationBarTitleText": "BookLoop 教材",

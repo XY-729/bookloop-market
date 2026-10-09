@@ -265,6 +265,7 @@ export class Trading {
         '卖家已标记交付',
         '请核实教材，未收到或存在问题请申请退款',
       );
+      await this.events.task(tx, `shipping:${id}`, 'WECHAT_SHIPPING', { orderId: id });
       return tx.order.update({
         where: { id },
         data: { status: 'DELIVERED', deliveredAt: new Date() },
@@ -290,6 +291,11 @@ export class Trading {
     if (!order.confirmedAt && now.getTime() < order.paidAt.getTime() + 7 * 24 * HOUR) return;
     const refund = await tx.refund.findUnique({ where: { orderId: id } });
     if (refund && !['REJECTED'].includes(refund.status)) return;
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (await tx.setting.findUnique({ where: { key: `shipping:${id}` } }))?.value !== 'SYNCED'
+    )
+      return;
     const settlement = await tx.settlement.upsert({
       where: { orderId: id },
       create: { orderId: id, amount: order.amount - order.fee },

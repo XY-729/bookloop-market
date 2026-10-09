@@ -11,12 +11,16 @@ import { Storage } from './storage';
 import { Events } from './events';
 import { productInput } from './validation';
 import { z } from 'zod';
+import { ContentSafety } from './content-safety';
+import { Legal } from './legal';
 @Injectable()
 export class Catalog {
   constructor(
     @Inject(Db) private db: Db,
     @Inject(Storage) private storage: Storage,
     @Inject(Events) private events: Events,
+    @Inject(ContentSafety) private safety: ContentSafety,
+    @Inject(Legal) private legal: Legal,
   ) {}
   async dictionaries() {
     return this.db.dictionary.findMany({
@@ -102,6 +106,7 @@ export class Catalog {
   }
   private async validate(actor: Actor, input: z.infer<typeof productInput>) {
     requireVerified(actor);
+    await this.safety.text(actor, `${input.title}\n${input.condition}\n${input.handoff}`);
     await this.storage.own(actor.id, [input.frontMediaId, input.backMediaId], 'PRODUCT');
     if (input.frontMediaId === input.backMediaId)
       throw new BadRequestException('请分别上传教材正面和反面照片');
@@ -167,6 +172,7 @@ export class Catalog {
       nickname: actor.nickname,
       verified: actor.verified,
       role: actor.role,
+      consent: await this.legal.status(actor.id),
       verification: await this.db.verification.findFirst({
         where: { userId: actor.id },
         orderBy: { createdAt: 'desc' },
